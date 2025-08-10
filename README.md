@@ -4,8 +4,12 @@ This is a simple web application that lets you interact with an AI via speech or
 
 ## Setup
 
-1. Open `index.html` in your browser.
-2. Replace `YOUR_OPENAI_API_KEY` in `script.js` with your OpenAI API key.
-3. Allow microphone access when prompted.
+1. Install dependencies and start the backend server:
+   ```bash
+   npm install
+   OPENAI_API_KEY=your_key npm start
+   ```
+   The server will host the web page at [http://localhost:3000](http://localhost:3000).
+2. Open the page in your browser and allow microphone access when prompted.
 
-The page is optimized for desktop and mobile browsers.
+The interface adapts to desktop and mobile browsers.

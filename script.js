@@ -15,35 +15,36 @@ function addMessage(text, sender) {
 }
 
 async function sendToSTT(audioBlob) {
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer YOUR_OPENAI_API_KEY`
-        },
-        body: formData
-    });
-    const data = await response.json();
-    return data.text;
+    try {
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.webm');
+        const response = await fetch('/api/stt', {
+            method: 'POST',
+            body: formData
+        });
+        if (!response.ok) throw new Error('Transcription request failed');
+        const data = await response.json();
+        return data.text;
+    } catch (err) {
+        addMessage('Failed to transcribe audio.', 'bot');
+        throw err;
+    }
 }
 
 async function sendToChatGPT(text) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer YOUR_OPENAI_API_KEY`
-        },
-        body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [{ role: 'user', content: text }]
-        })
-    });
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        if (!response.ok) throw new Error('Chat request failed');
+        const data = await response.json();
+        return data.reply;
+    } catch (err) {
+        addMessage('Chat service error.', 'bot');
+        throw err;
+    }
 }
 
 function speak(text) {
@@ -60,28 +61,43 @@ recordBtn.onclick = async () => {
         return;
     }
 
-    audioChunks = [];
-    recordBtn.textContent = '■ Stop';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        addMessage('Microphone not supported in this browser.', 'bot');
+        return;
+    }
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
+    try {
+        audioChunks = [];
+        recordBtn.textContent = '■ Stop';
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.start();
 
-    mediaRecorder.ondataavailable = e => {
-        audioChunks.push(e.data);
-    };
+        mediaRecorder.ondataavailable = e => {
+            audioChunks.push(e.data);
+        };
 
-    mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const text = await sendToSTT(audioBlob);
-        textInput.value = text;
-        sendMessage();
-    };
+        mediaRecorder.onstop = async () => {
+            try {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const text = await sendToSTT(audioBlob);
+                textInput.value = text;
+                sendMessage();
+            } catch (err) {
+                console.error(err);
+            }
+        };
+    } catch (err) {
+        addMessage('Unable to access microphone.', 'bot');
+        recordBtn.textContent = '🎤 Speak';
+        console.error(err);
+    }
 };
 
 sendBtn.onclick = sendMessage;
 textInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
         sendMessage();
     }
 });
@@ -92,7 +108,11 @@ async function sendMessage() {
     addMessage(text, 'user');
     textInput.value = '';
 
-    const reply = await sendToChatGPT(text);
-    addMessage(reply, 'bot');
-    speak(reply);
+    try {
+        const reply = await sendToChatGPT(text);
+        addMessage(reply, 'bot');
+        speak(reply);
+    } catch (err) {
+        console.error(err);
+    }
 }
