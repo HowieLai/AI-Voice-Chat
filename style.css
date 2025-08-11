@@ -56,6 +56,11 @@ header {
     align-self: flex-start;
 }
 
+.thinking {
+    opacity: 0.7;
+    font-style: italic;
+}
+
 #inputArea {
     display: flex;
     padding: 10px;

@@ -6,43 +6,35 @@ const messages = document.getElementById('messages');
 let mediaRecorder;
 let audioChunks = [];
 
-function addMessage(text, sender) {
+function addMessage(text, sender, isThinking = false) {
     const msg = document.createElement('div');
-    msg.className = `message ${sender}`;
-    msg.textContent = text;
+    msg.className = `message ${sender}` + (isThinking ? ' thinking' : '');
+    msg.innerHTML = marked.parse(text);
     messages.appendChild(msg);
     messages.scrollTop = messages.scrollHeight;
 }
 
-async function sendToSTT(audioBlob) {
+async function sendToGemini({ text, audioBlob }) {
     try {
-        const formData = new FormData();
-        formData.append('file', audioBlob, 'audio.webm');
-        const response = await fetch('/api/stt', {
-            method: 'POST',
-            body: formData
-        });
-        if (!response.ok) throw new Error('Transcription request failed');
-        const data = await response.json();
-        return data.text;
+        let response;
+        if (audioBlob) {
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'audio.webm');
+            response = await fetch('/api/chat', {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+        }
+        if (!response.ok) throw new Error('Request failed');
+        return await response.json();
     } catch (err) {
-        addMessage('Failed to transcribe audio.', 'bot');
-        throw err;
-    }
-}
-
-async function sendToChatGPT(text) {
-    try {
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
-        if (!response.ok) throw new Error('Chat request failed');
-        const data = await response.json();
-        return data.reply;
-    } catch (err) {
-        addMessage('Chat service error.', 'bot');
+        addMessage('Service error.', 'bot');
         throw err;
     }
 }
@@ -80,9 +72,12 @@ recordBtn.onclick = async () => {
         mediaRecorder.onstop = async () => {
             try {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                const text = await sendToSTT(audioBlob);
-                textInput.value = text;
-                sendMessage();
+                const { thinking, reply } = await sendToGemini({ audioBlob });
+                if (thinking) addMessage(`思考：\n\n${thinking}`, 'bot', true);
+                if (reply) {
+                    addMessage(`回答：\n\n${reply}`, 'bot');
+                    speak(reply);
+                }
             } catch (err) {
                 console.error(err);
             }
@@ -109,9 +104,12 @@ async function sendMessage() {
     textInput.value = '';
 
     try {
-        const reply = await sendToChatGPT(text);
-        addMessage(reply, 'bot');
-        speak(reply);
+        const { thinking, reply } = await sendToGemini({ text });
+        if (thinking) addMessage(`思考：\n\n${thinking}`, 'bot', true);
+        if (reply) {
+            addMessage(`回答：\n\n${reply}`, 'bot');
+            speak(reply);
+        }
     } catch (err) {
         console.error(err);
     }

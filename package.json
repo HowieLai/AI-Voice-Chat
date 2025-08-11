@@ -1,7 +1,7 @@
 {
   "name": "ai-voice-chat",
   "version": "1.0.0",
-  "description": "This is a simple web application that lets you interact with an AI via speech or text. Speak into your microphone and the app will transcribe your words using OpenAI Whisper, send them to ChatGPT, display the response, and read it aloud using the browser's text‑to‑speech.",
+  "description": "This is a simple web application that lets you interact with an AI via speech or text. Speak into your microphone or type and the app forwards your input to Google's Gemini model, displays the markdown response, and reads it aloud using the browser's text‑to‑speech.",
   "main": "script.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
