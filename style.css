@@ -25,6 +25,19 @@ header {
     text-align: center;
 }
 
+#settings {
+    padding: 10px;
+    display: flex;
+    gap: 5px;
+}
+
+#settings input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
 #chatContainer {
     flex: 1;
     overflow-y: auto;
