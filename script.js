@@ -3,6 +3,9 @@ const autoBtn = document.getElementById('autoBtn');
 const sendBtn = document.getElementById('sendBtn');
 const textInput = document.getElementById('textInput');
 const messages = document.getElementById('messages');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+const stopSpeakBtn = document.getElementById('stopSpeakBtn');
 
 let mediaRecorder;
 let audioChunks = [];
@@ -10,12 +13,22 @@ let silenceTimer;
 const conversation = [];
 const SILENCE_DURATION = 1500;
 const SILENCE_THRESHOLD = 0.01;
+let currentUtter;
 
 if (!navigator.mediaDevices) {
     holdBtn.disabled = true;
     autoBtn.disabled = true;
     holdBtn.textContent = '🎤 Unsupported';
     autoBtn.textContent = '🎤 Unsupported';
+}
+
+apiKeyInput.value = localStorage.getItem('OPENAI_API_KEY') || '';
+saveKeyBtn.onclick = () => {
+    localStorage.setItem('OPENAI_API_KEY', apiKeyInput.value.trim());
+};
+
+function getApiKey() {
+    return apiKeyInput.value.trim() || localStorage.getItem('OPENAI_API_KEY') || '';
 }
 
 function addMessage(text, sender) {
@@ -27,12 +40,15 @@ function addMessage(text, sender) {
 }
 
 async function sendToSTT(audioBlob) {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('No API key');
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
 
     try {
         const response = await fetch('/transcriptions', {
             method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}` },
             body: formData
         });
         if (!response.ok) throw new Error('STT failed');
@@ -45,11 +61,14 @@ async function sendToSTT(audioBlob) {
 }
 
 async function sendToChatGPT() {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('No API key');
     try {
         const response = await fetch('/chat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`
             },
             body: JSON.stringify({ messages: conversation })
         });
@@ -64,8 +83,14 @@ async function sendToChatGPT() {
 
 function speak(text) {
     if ('speechSynthesis' in window) {
-        const utter = new SpeechSynthesisUtterance(text);
-        speechSynthesis.speak(utter);
+        currentUtter = new SpeechSynthesisUtterance(text);
+        speechSynthesis.speak(currentUtter);
+    }
+}
+
+function stopSpeaking() {
+    if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
     }
 }
 
@@ -190,6 +215,7 @@ holdBtn.addEventListener('touchend', stopHoldRecording);
 autoBtn.onclick = startAutoRecording;
 
 sendBtn.onclick = sendMessage;
+stopSpeakBtn.onclick = stopSpeaking;
 textInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         sendMessage();

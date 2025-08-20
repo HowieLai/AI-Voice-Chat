@@ -12,6 +12,7 @@ app.use(express.json());
 
 app.post('/transcriptions', upload.single('file'), async (req, res) => {
   try {
+    const authHeader = req.headers.authorization || `Bearer ${OPENAI_API_KEY}`;
     const formData = new FormData();
     formData.append('file', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname);
     formData.append('model', 'whisper-1');
@@ -19,7 +20,7 @@ app.post('/transcriptions', upload.single('file'), async (req, res) => {
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`
+        Authorization: authHeader
       },
       body: formData
     });
@@ -38,11 +39,12 @@ app.post('/transcriptions', upload.single('file'), async (req, res) => {
 
 app.post('/chat', async (req, res) => {
   try {
+    const authHeader = req.headers.authorization || `Bearer ${OPENAI_API_KEY}`;
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`
+        Authorization: authHeader
       },
       body: JSON.stringify({
         model: 'gpt-3.5-turbo',
